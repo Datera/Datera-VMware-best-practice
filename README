@@ -1,0 +1,112 @@
+PowerCLI script to check/configure Datera Best Practices on ESXi hosts
+
+Preparation 1 - Install Powershell on the node you want to run the script
+-------------------------------------------------------------------------
+	MacOS:
+		1.  brew cask install powershell
+		2.  Verify if PowerShell 6.2.2 installed by "pwsh" command
+	Ubuntu (16.04):
+		1. Download powershell_6.2.2-1.ubuntu.16.04_amd64.deb   
+		2. Use "sudo apt-get install <package>" command to install PowerShell 6.2.2
+	Windows (Windows 2012 R2)
+		Powershell installed by default
+
+Preparation 2 - Install VMware PowerCLI on the node you want to run the script
+------------------------------------------------------------------------------
+	MacOS:  
+        Ubuntu: 
+		1.  Go to powershell console by command "pwsh"	
+		2.  Run the command "Install-Module -Name VMware.PowerCLI"
+	Windows:
+		1.  Download VMware-PowerCLI-6.5.0-4624819.exe from VMware
+		2.  Install VMware-PowerCLI-6.5.0 by clicking the executable 
+
+Features
+--------
+	Powercli script Datera_VMWare_setup.ps1 is a tool to display and 
+        configure 4 storage or iSCSI parameters on ESXi hosts via vCenter based on 
+        Datera VMware best practice.
+
+	### 4 parameters ###
+     	- ATS heartbeat                     -- Disabled
+     	- iSCSI QD                          -- 16
+     	- DelayedACK of SW iSCSI adapter    -- Disabled
+     	- DATERA NMP SATP rule              -- Round Robin and IOPS=1 for Datera storage
+
+        ### How to run ###
+        1.   Download the script Datera_VMWare_setup.ps1 from github into your current directory
+        2.   Start Powershell console 
+        3.   Connect to vCenter from powercli console either on Windows, or MacOS, or Ubuntu
+             Windows: 
+	     	PowerCLI C:\> Connect-VIServer -Server <vCenter server IP or FQDN> -Force
+	     MacOS or Ubuntu:
+             	PS /home/ghg> Connect-VIServer -Server <vCenter server IP or FQDN> -Force
+	     (the -Force parameter is only required if VCSA does not have proper SSL certificates) 
+        4.   Display 4 parameters on all ESXi hosts managed by vCenter   
+	     Windows:
+              	PowerCLI C:<path_to_the_script>\Datera_VMWare_setup.ps1
+	     MacOS or Ubuntu:
+		PS /home/ghg> ./Datera_VMWare_setup.ps1
+
+        5.   Update 4 parameters on all ESXi hosts that iSCSI targets are not connected.   
+	     Windows:
+              	PowerCLI C:<path_to_the_script>\Datera_VMWare_setup.ps1 -Update yes 
+	     MacOS or Ubuntu:
+		PS /home/ghg> ./Datera_VMWare_setup.ps1 -Update yes
+        
+	### Tested environments ###
+	We did test the script in the following environments:
+	    1)  ESXi 6.0u3 and vCenter 6.0 u3h
+	    2)  ESXi 6.5u2 and vCenter 6.5 u2d   		
+	    3)  ESXi 6.7u2 and vCenter 6.7 u2c	
+
+FAQ
+---
+
+Q: Why do we need to setup these parameters?
+A: The details can be found in the comments in the source of Datera_VMWare_setup.ps1  
+
+Q: What is the output of 4 parameters?	
+A:
+==== ATS hearbeat on <ESXi node FQDN> (1:enabled 0:disabled)  ====
+
+Uid         : /VIServer=vsphere.local\administrator@<vCenter FQDN>:443/VMHost=HostSystem-host-395/AdvancedSetting=VMHostSetting-VMFS3.UseATSForHBOnVMFS5/
+Value       : 0
+Description :
+Type        : VMHost
+Entity      : <ESXi node FQDN>
+Id          : VMHostSetting-VMFS3.UseATSForHBOnVMFS5
+Name        : VMFS3.UseATSForHBOnVMFS5
+Client      : VMware.VimAutomation.ViCore.Impl.V1.VimClient
+
+==== iSCSI Queue depth on <ESXi node FQDN> ====
+
+Description : Maximum Outstanding Commands Per LUN
+Name        : iscsivmk_LunQDepth
+Type        : int
+Value       : 16
+
+==== Delayed ACK of software iSCSI adapter on <ESXi node FQDN> ====
+
+ID      : vmhba64
+Current : false
+
+==== NMP SATP RULE of DATERA on <ESXi node FQDN> ====
+
+ClaimOptions :
+DefaultPSP   : VMW_PSP_RR
+Description  : DATERA custom SATP Rule
+Device       :
+Driver       :
+Model        :
+Name         : VMW_SATP_ALUA
+Options      :
+PSPOptions   : iops=1
+RuleGroup    : user
+Transport    :
+Vendor       : DATERA
+
+Q: Why is the script skipping some of my ESXi hosts?
+A: The script will purposefully skip ESXi host(s) that have iSCSI targets configured,
+   to avoid damaging your ESXi server configuration. This script is intended to be run
+   when a new ESXi host is added to vCenter Server.
