@@ -381,18 +381,18 @@ foreach ($esx in $vmhosts){
 
     # ATS heartbeat status
     Write-Output ("==== ATS heartbeat on " + $esx.Name + " (1:enabled 0:disabled) " + " ====")
-    Get-AdvancedSetting -Entity $esx -Name VMFS3.UseATSForHBOnVMFS5 | Format-List | Format-Color @{'Value\s*:\s*1$' = 'Red'; "Value\s*:\s*0" = 'Green'}
+    Get-AdvancedSetting -Entity $esx -Name VMFS3.UseATSForHBOnVMFS5 | Format-List | Format-Color @{"Value\s*:\s*1$" = 'Red'; "Value\s*:\s*0" = 'Green'}
 
     # iSCSI queue depth
     Write-Output ("==== iSCSI Queue depth on " + $esx.Name + " ====")
     $esxcli = get-esxcli -VMHost $esx
-    $esxcli.system.module.parameters.list("iscsi_vmk") | Where{$_.Name -eq "iscsivmk_LunQDepth"} | Format-List | Format-Color @{'Value\s*:\s*$' = 'Red'; "Value\s*:\s*16" = 'Green'}
+    $esxcli.system.module.parameters.list("iscsi_vmk") | Where{$_.Name -eq "iscsivmk_LunQDepth"} | Format-List | Format-Color @{"Value\s*:\s(?!16)" = 'Red'; "Value\s*:\s*16" = 'Green'}
 
     # Delayed Ack
     Write-Output ("==== Delayed ACK of software iSCSI adapter on " + $esx.Name + " ====")
     $adapterId = $esx.ExtensionData.config.StorageDevice.HostBusAdapter | Where{$_.Model -match "iSCSI"}
     foreach($adapter in $adapterId){
-        $esxcli.iscsi.adapter.param.get($adapter.device) | Where{$_.Name -eq "DelayedACK"} | Select ID, Current | Format-List | Format-Color @{'Current\s*:\s*true' = 'Red'; 'Current\s*:\s*false' = 'Green'}
+        $esxcli.iscsi.adapter.param.get($adapter.device) | Where{$_.Name -eq "DelayedACK"} | Select ID, Current | Format-List | Format-Color @{"Current\s*:\s*true" = 'Red'; "Current\s*:\s*false" = 'Green'}
     }
     
     # nmp satp rule
