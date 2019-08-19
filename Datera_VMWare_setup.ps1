@@ -53,6 +53,22 @@ Param([parameter(Mandatory=$false,
    ")]
    [string]$Update)
 
+function Format-Color([hashtable] $Colors = @{}, [switch] $SimpleMatch) {
+        $lines = ($input | Out-String) -replace "`r", "" -split "`n"
+        foreach($line in $lines) {
+                $color = ''
+                foreach($pattern in $Colors.Keys) {
+                        if(!$SimpleMatch -and $line -match $pattern) { $color = $Colors[$pattern] }
+                        elseif ($SimpleMatch -and $line -like $pattern) { $color = $Colors[$pattern] }
+                }
+                if($color) {
+                        Write-Host -ForegroundColor $color $line
+                } else {
+                        Write-Host $line
+                }
+        }
+}
+
 $updateESXi = $false
 if ($Update -ne $null) {
     if ($Update -eq "yes") {
@@ -365,26 +381,26 @@ foreach ($esx in $vmhosts){
 
     # ATS heartbeat status
     Write-Output ("==== ATS heartbeat on " + $esx.Name + " (1:enabled 0:disabled) " + " ====")
-    Get-AdvancedSetting -Entity $esx -Name VMFS3.UseATSForHBOnVMFS5
+    Get-AdvancedSetting -Entity $esx -Name VMFS3.UseATSForHBOnVMFS5 | Format-List | Format-Color @{"Value\s*:\s*1$" = 'Red'; "Value\s*:\s*0" = 'Green'}
 
     # iSCSI queue depth
     Write-Output ("==== iSCSI Queue depth on " + $esx.Name + " ====")
     $esxcli = get-esxcli -VMHost $esx
-    $esxcli.system.module.parameters.list("iscsi_vmk") | Where{$_.Name -eq "iscsivmk_LunQDepth"}
+    $esxcli.system.module.parameters.list("iscsi_vmk") | Where{$_.Name -eq "iscsivmk_LunQDepth"} | Format-List | Format-Color @{"Value\s*:\s(?!16)" = 'Red'; "Value\s*:\s*16" = 'Green'}
 
     # Delayed Ack
     Write-Output ("==== Delayed ACK of software iSCSI adapter on " + $esx.Name + " ====")
     $adapterId = $esx.ExtensionData.config.StorageDevice.HostBusAdapter | Where{$_.Model -match "iSCSI"}
     foreach($adapter in $adapterId){
-        $esxcli.iscsi.adapter.param.get($adapter.device) | Where{$_.Name -eq "DelayedACK"} | Select ID, Current
+        $esxcli.iscsi.adapter.param.get($adapter.device) | Where{$_.Name -eq "DelayedACK"} | Select ID, Current | Format-List | Format-Color @{"Current\s*:\s*true" = 'Red'; "Current\s*:\s*false" = 'Green'}
     }
     
     # nmp satp rule
     Write-Output ("==== NMP SATP RULE of DATERA on " + $esx.Name + " ====")
     $NmpSatpRule = $esxcli.storage.nmp.satp.rule.list() | Where{$_.Vendor -eq "DATERA"}
-    Write-Output ($NmpSatpRule) 
+    Write-Output ($NmpSatpRule) | Format-Color @{'' = 'Green'}
     if ($NmpSatpRule -eq $null) {
-        Write-Output (" No customized NMP SATP RULE for DATERA on " + $esx.Name)
+        Write-Output (" No customized NMP SATP RULE for DATERA on " + $esx.Name) | Format-Color @{'' = 'Red'}
         Write-Output ("  ") 
     }
     Write-Output ("  ") 
