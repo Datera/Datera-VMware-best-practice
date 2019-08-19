@@ -97,6 +97,17 @@ tlx192.tlx.datera... Connected       PoweredOn      16        1089       38384  
 tlx191.tlx.datera... Connected       PoweredOn      16         193       38384           3.350         127.895   6.0.0
 #>
 
+$results = $vmhosts | Select-Object Name
+
+$results | add-member –membertype NoteProperty –name Found_ATS_HB –Value NotSet
+$results | add-member –membertype NoteProperty –name Expected_ATS_HB –Value 0
+$results | add-member –membertype NoteProperty –name Found_Queue_Depth –Value NotSet
+$results | add-member –membertype NoteProperty –name Expected_Queue_Depth –Value 16
+$results | add-member –membertype NoteProperty –name Found_Delayed_Ack -Value NoAdaptorPresent
+$results | add-member –membertype NoteProperty –name Expected_Delayed_Ack –Value false
+$results | add-member –membertype NoteProperty –name Found_NMP_SATP_Rule –Value NotSet
+$results | add-member –membertype NoteProperty –name Expected_NMP_SATP_Rule –Value Present
+
 ########    
 ########    Script
 ########
@@ -377,35 +388,53 @@ Write-Output "
 
 foreach ($esx in $vmhosts){
     Write-Output ("########## " + $esx.Name + " ##########") 
-    Write-Output ("  ") 
+    Write-Output ("  ")
+    $index = $vmhosts.IndexOf($esx)
 
     # ATS heartbeat status
     Write-Output ("==== ATS heartbeat on " + $esx.Name + " (1:enabled 0:disabled) " + " ====")
-    Get-AdvancedSetting -Entity $esx -Name VMFS3.UseATSForHBOnVMFS5 | Format-List | Format-Color @{"Value\s*:\s*1$" = 'Red'; "Value\s*:\s*0" = 'Green'}
+    $setting = Get-AdvancedSetting -Entity $esx -Name VMFS3.UseATSForHBOnVMFS5
+    $setting | Format-List | Format-Color @{"Value\s*:\s*1$" = 'Red'; "Value\s*:\s*0" = 'Green'}
+    $value = $setting | Select-Object Value
+
+    $results.Item($index).Found_ATS_HB = $value.Value
 
     # iSCSI queue depth
     Write-Output ("==== iSCSI Queue depth on " + $esx.Name + " ====")
     $esxcli = get-esxcli -VMHost $esx
-    $esxcli.system.module.parameters.list("iscsi_vmk") | Where{$_.Name -eq "iscsivmk_LunQDepth"} | Format-List | Format-Color @{"Value\s*:\s(?!16)" = 'Red'; "Value\s*:\s*16" = 'Green'}
+    $setting = $esxcli.system.module.parameters.list("iscsi_vmk") | Where{$_.Name -eq "iscsivmk_LunQDepth"}
+    $setting | Format-List | Format-Color @{"Value\s*:\s(?!16)" = 'Red'; "Value\s*:\s*16" = 'Green'}
+    $value = $setting | Select-Object Value
+
+    $results.Item($index).Found_Queue_Depth = $value.Value
 
     # Delayed Ack
     Write-Output ("==== Delayed ACK of software iSCSI adapter on " + $esx.Name + " ====")
     $adapterId = $esx.ExtensionData.config.StorageDevice.HostBusAdapter | Where{$_.Model -match "iSCSI"}
     foreach($adapter in $adapterId){
-        $esxcli.iscsi.adapter.param.get($adapter.device) | Where{$_.Name -eq "DelayedACK"} | Select ID, Current | Format-List | Format-Color @{"Current\s*:\s*true" = 'Red'; "Current\s*:\s*false" = 'Green'}
+        $adapter_name = $adapter.IScsiName
+        $setting = $esxcli.iscsi.adapter.param.get($adapter.device) | Where{$_.Name -eq "DelayedACK"} | Select ID, Current
+        $setting | Format-List | Format-Color @{"Current\s*:\s*true" = 'Red'; "Current\s*:\s*false" = 'Green'}
+
+        $results.Item($index).Found_Delayed_Ack = $setting.Current
     }
     
     # nmp satp rule
     Write-Output ("==== NMP SATP RULE of DATERA on " + $esx.Name + " ====")
     $NmpSatpRule = $esxcli.storage.nmp.satp.rule.list() | Where{$_.Vendor -eq "DATERA"}
-    Write-Output ($NmpSatpRule) | Format-Color @{'' = 'Green'}
+
     if ($NmpSatpRule -eq $null) {
         Write-Output (" No customized NMP SATP RULE for DATERA on " + $esx.Name) | Format-Color @{'' = 'Red'}
-        Write-Output ("  ") 
+        Write-Output ("  ")
+        $results.Item($index).Found_NMP_SATP_Rule = 'Not Present'
+    } else {
+        Write-Output ($NmpSatpRule) | Format-Color @{'' = 'Green'}
+        $results.Item($index).Found_NMP_SATP_Rule = 'Present'
     }
     Write-Output ("  ") 
 }
 
+$results | Format-Table
 
 <# Result Looks like:
 ClaimOptions :
