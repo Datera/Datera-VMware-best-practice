@@ -99,14 +99,14 @@ tlx191.tlx.datera... Connected       PoweredOn      16         193       38384  
 
 $results = $vmhosts | Select-Object Name
 
-$results | add-member –membertype NoteProperty –name Found_ATS_HB –Value NotSet
-$results | add-member –membertype NoteProperty –name Expected_ATS_HB –Value 0
-$results | add-member –membertype NoteProperty –name Found_Queue_Depth –Value NotSet
-$results | add-member –membertype NoteProperty –name Expected_Queue_Depth –Value 16
-$results | add-member –membertype NoteProperty –name Found_Delayed_Ack -Value NoAdaptorPresent
-$results | add-member –membertype NoteProperty –name Expected_Delayed_Ack –Value false
-$results | add-member –membertype NoteProperty –name Found_NMP_SATP_Rule –Value NotSet
-$results | add-member –membertype NoteProperty –name Expected_NMP_SATP_Rule –Value Present
+$results | add-member -Membertype NoteProperty -Name Found_ATS_HB -Value NotSet
+$results | add-member -Membertype NoteProperty -Name Expected_ATS_HB -Value 0
+$results | add-member -Membertype NoteProperty -Name Found_Queue_Depth -Value NotSet
+$results | add-member -Membertype NoteProperty -Name Expected_Queue_Depth -Value 16
+$results | add-member -Membertype NoteProperty -Name Found_Delayed_Ack -Value NoAdaptorPresent
+$results | add-member -Membertype NoteProperty -Name Expected_Delayed_Ack -Value false
+$results | add-member -Membertype NoteProperty -Name Found_NMP_SATP_Rule -Value NotSet
+$results | add-member -Membertype NoteProperty -Name Expected_NMP_SATP_Rule -Value Present
 
 ########    
 ########    Script
