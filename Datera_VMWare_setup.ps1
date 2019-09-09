@@ -434,7 +434,20 @@ foreach ($esx in $vmhosts){
     Write-Output ("  ") 
 }
 
+$results | add-member -Membertype NoteProperty -Name Valid_Config -Value $false
+
+foreach ($result in $results){
+    if (($result.Found_ATS_HB -eq $result.Expected_ATS_HB) -and
+        ($result.Found_Queue_Depth -eq $result.Expected_Queue_Depth) -and
+        (($result.Found_Delayed_Ack -eq "NoAdaptorPresent") -or ($result.Found_Delayed_Ack -eq $result.Expected_Delayed_Ack)) -and
+        ($result.Found_NMP_SATP_Rule -eq $result.Expected_NMP_SATP_Rule)) {
+            $result.Valid_Config = $true
+        }
+}
+
 $results | Format-Table
+
+$results | select Name, Valid_Config | Format-Table | Format-Color @{"true" = 'Green'; "false" = 'Red'}
 
 <# Result Looks like:
 ClaimOptions :
