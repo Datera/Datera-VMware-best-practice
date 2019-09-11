@@ -132,7 +132,7 @@ Write-Host "
                .,%%%%%%:.
                   ..~,.
 
-       SOFTWARE DEFINED EVERYTHING
+       SOFTWARE DEFINED STORAGE
        " -ForegroundColor Cyan
 Write-Host "      Datera® VMware® Best Practices
           Configuration Script
