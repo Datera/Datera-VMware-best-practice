@@ -139,7 +139,6 @@ Write-Host "      Datera® VMware® Best Practices
           "
 $verbose = $verb
 
-#$vCenterServer = "view-vcenter.clutchgroup.infra"
 if ($vCredential -eq $null)
 {
     $vCredential = Get-Credential -Message "$vCenterServer"
@@ -384,11 +383,10 @@ foreach ($esx in $vmhosts)
         }
         if (-not $optimalQD -and $safeHosts.Contains($esx))
         {
-            $DQDString = "iscsiVMK_LunQDepth=$DateraIscsiQueueDepth"
             if ($verbose -or $succinct){Write-Host "Identified this as a safe host to fix automatically, Attempting fix."}
             $qDepth = @{
                     module = 'iscsi_vmk'
-                    parameterstring = 'iscsiVMK_LunQDepth='+$DateraIscsiQueueDepth
+                    parameterstring = 'iscsivmk_LunQDepth='+$DateraIscsiQueueDepth
                     }
             try {
                 $setChange = $esxcli.system.module.parameters.set.Invoke($qDepth)
@@ -452,9 +450,11 @@ foreach ($esx in $vmhosts)
                         $options = New-Object VMWare.Vim.HostInternetScsiHbaParamValue[] (1)
                         $options[0] = New-Object VMware.Vim.HostInternetScsiHbaParamValue
                         $options[0].key = "DelayedAck"
-                        $options[0].value = $true
+                        $options[0].value = $false
 
                         $HostiSCSISoftwareAdapterHBAID = $adapter.device
+                        $view = Get-VMHost $esx | Get-View
+                        $HostStorageSystemID = $view.configmanager.StorageSystem
                         $HostStorageSystem = Get-View -ID $HostStorageSystemID
                         $HostStorageSystem.UpdateInternetScsiAdvancedOptions($HostiSCSISoftwareAdapterHBAID, $null, $options)
 
