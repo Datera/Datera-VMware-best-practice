@@ -42,7 +42,7 @@ Features
         * please refer to thec omments in the script itself.
 
         -Update (bool, default $false)
-    Attempt to correct the deviations from best practices found
+            Attempt to correct the deviations from best practices found
         -vCenterServer (string, mandatory, no default)
             This is the FQDN of the vCenter Server E.g. vcenter.example.com
         -vCredential (PSCredential, mandatory, no default)
