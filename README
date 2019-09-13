@@ -2,63 +2,63 @@ PowerCLI script to check/configure Datera Best Practices on ESXi hosts
 
 Preparation 1 - Install Powershell on the node you want to run the script
 -------------------------------------------------------------------------
-	MacOS:
-		1. brew cask install powershell
-		2. Verify if PowerShell 6.2.2 installed by "pwsh" command
-	Ubuntu (16.04):
-		1. Download powershell_6.2.2-1.ubuntu.16.04_amd64.deb   
-		2. Use "sudo apt-get install <package>" command to install PowerShell 6.2.2
-	Windows (Windows 2012 R2)
-		Powershell installed by default
+    MacOS:
+        1. brew cask install powershell
+        2. Verify if PowerShell 6.2.2 installed by "pwsh" command
+    Ubuntu (16.04):
+        1. Download powershell_6.2.2-1.ubuntu.16.04_amd64.deb
+        2. Use "sudo apt-get install <package>" command to install PowerShell 6.2.2
+    Windows (Windows 2012 R2)
+        Powershell installed by default
 
 Preparation 2 - Install VMware PowerCLI on the node you want to run the script
 ------------------------------------------------------------------------------
-		1. Go to powershell console	
-		2. Run the command "Install-Module -Name VMware.PowerCLI"
+        1. Go to powershell console
+        2. Run the command "Install-Module -Name VMware.PowerCLI"
 
 Features
 --------
-	Powercli script Datera_VMWare_setup.ps1 is a tool to display and 
-        configure 4 storage or iSCSI parameters on ESXi hosts via vCenter based on 
-        Datera VMware best practice.
+    Powercli script Datera_VMWare_setup.ps1 is a tool to display and
+    configure 4 storage or iSCSI parameters on ESXi hosts via vCenter based on
+    Datera VMware best practice.
 
-	### Datera requires 4 parameters to be set on ESX hosts ###
-     	- ATS heartbeat                     -- Disabled
-     	- iSCSI Queue Depth                 -- 16
-     	- DelayedACK of SW iSCSI adapter    -- Disabled
-     	- DATERA NMP SATP rule              -- Round Robin and IOPS=1 for Datera storage
+    ### Datera requires 4 parameters to be set on ESX hosts ###
+        - ATS heartbeat                     -- Disabled
+        - iSCSI Queue Depth                 -- 16
+        - DelayedACK of SW iSCSI adapter    -- Disabled
+        - DATERA NMP SATP rule              -- Round Robin and IOPS=1 for Datera storage
 
     ### How to run ###
         1. Download/clone the github repository into your current directory
         2. Start Powershell console
         3a. Run the script in its simplest form:
-        	PowerCLI C:\> .\Datera_VMWare_setup.ps1 - the script will prompt for all its
-        											  required parameters
+            PowerCLI C:\> .\Datera_VMWare_setup.ps1 - the script will prompt for all its
+                                                      required parameters
         3b. Run the script in corrective mode (this is disruptive and should be used with caution)
-        	PowerCLI C:\> .\Datera_VMWare_setup.ps1 -Update $true
+            PowerCLI C:\> .\Datera_VMWare_setup.ps1 -Update $true
 
     ### Script parameters
-    	* For a complete and most up to date description of the script parameters,
-    	* please refer to thec omments in the script itself.
+        * For a complete and most up to date description of the script parameters,
+        * please refer to thec omments in the script itself.
 
-    	-Update (bool, default $false)
-    		Attempt to correct the deviations from best practices found
-		-vCenterServer (string, mandatory, no default)
-	    	This is the FQDN of the vCenter Server E.g. vcenter.example.com
-	    -vCredential (PSCredential, mandatory, no default)
-		    This is the account that you will use to connect to vCenter
-		-verb (boolean, default $false)
-			Verbose. If you want lighter feedback, enable the succinct flag.
-		-succinct (boolean, default $false)
-			Summary output throughout the script. For more feedback, try the verbose flag.
-		-SendEmail (boolean, default $false)
-			Send an email for script execution. Set proper parameters in constants.ps1
+        -Update (bool, default $false)
+    Attempt to correct the deviations from best practices found
+        -vCenterServer (string, mandatory, no default)
+            This is the FQDN of the vCenter Server E.g. vcenter.example.com
+        -vCredential (PSCredential, mandatory, no default)
+            This is the account that you will use to connect to vCenter
+        -verb (boolean, default $false)
+            Verbose. If you want lighter feedback, enable the succinct flag.
+        -succinct (boolean, default $false)
+            Summary output throughout the script. For more feedback, try the verbose flag.
+        -SendEmail (boolean, default $false)
+            Send an email for script execution. Set proper parameters in constants.ps1
         
-	### Tested environments ###
-	We did test the script in the following environments:
-	    1)  ESXi 6.0u3 and vCenter 6.0 u3h
-	    2)  ESXi 6.5u2 and vCenter 6.5 u2d
-	    3)  ESXi 6.7u2 and vCenter 6.7 u2c
+    ### Tested environments ###
+    We did test the script in the following environments:
+        1)  ESXi 6.0u3 and vCenter 6.0 u3h
+        2)  ESXi 6.5u2 and vCenter 6.5 u2d
+        3)  ESXi 6.7u2 and vCenter 6.7 u2c
 
 FAQ
 ---
@@ -72,7 +72,7 @@ A: The script will purposefully skip ESXi host(s) that have iSCSI targets config
    when a new ESXi host is added to vCenter Server.
 
 Q: I am getting the following error on MacOS, and my screen looks grabbled, what to do?
-	sort: invalid option -- D
+    sort: invalid option -- D
 A: In its infinite wisdom, Microsoft decided it's a good idea to overload system names.
    TL/DR version: set an Alias for sort
    PS> Set-Alias -Name sort -Value Sort-Object -Scope Global
