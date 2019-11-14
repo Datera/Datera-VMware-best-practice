@@ -632,10 +632,10 @@ Function Write-PSObject
         Catch{}
     }
 
-    $lines = (($input | FT -A | Out-String) -replace "`r", "" -split "`n") | ? {$_.Trim() -ne ""};
+    $lines = (($input | FT -A | Out-String -Width 1000) -replace "`r", "" -split "`n") | ? {$_.Trim() -ne ""};
     If(!($lines))
     {
-        $lines = (($Object | FT -A | Out-String) -replace "`r", "" -split "`n") | ? {$_.Trim() -ne ""};
+        $lines = (($Object | FT -A | Out-String -Width 1000) -replace "`r", "" -split "`n") | ? {$_.Trim() -ne ""};
     }
     else
     {
