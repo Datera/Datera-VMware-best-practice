@@ -729,7 +729,7 @@ Function Write-PSObject
             {
                 $headerLine = $line;
                 $header = $lines[0];
-                [String[]]$headerLines = $headerLine -split " " | ? {$_.Trim() -ne ""} | Foreach {$_.Trim("`t").Trim();};
+                [String[]]$headerLines = $headerLine -split "\s+" | ? {$_.Trim() -ne ""} | Foreach {$_.Trim("`t").Trim();};
                 $colCount = $headerLines.Count;
                 $columns = @($null) * $colCount;
                 
@@ -740,7 +740,7 @@ Function Write-PSObject
                 $i = 0;
                 $headersPos[$i] = 0;
               
-                $columns[$i] = $header.Substring($pos, $headerLines[$i].Length);
+                $columns[$i] = $header.Substring($pos, $headerLines[$i].Length).Trim();
                 $col = $Columns[$i];
                 $headersLen[$i] = $object | Select $col, @{Name="Len";Expression={$_.$col.ToString().Length}} | Sort Len -Descending | Select Len -First 1 -ExpandProperty Len;
                 If ($headerLines[$i].Length -gt $headersLen[$i])

@@ -687,5 +687,6 @@ H3 {font-family: Tahoma, Geneva, sans-serif;}
 else{
 Write-Host "Great Job, everything looks good."}
 
+Disconnect-VIServer -Server $global:DefaultVIServers -Force -Confirm:$false
 
 
