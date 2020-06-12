@@ -51,27 +51,39 @@ Param(
      !!  update; otherwise enter `"No`" to only display     !!
      !!  the current setup.                                 !!
      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-")] [bool]$Update=$false,
+")]
+[bool]$Update=$false,
+
 [parameter(Mandatory=$true,HelpMessage="
     This is the FQDN of the vCenter Server
     E.g. vcenter.example.com
-")] [string] $vCenterServer,
+")]
+[string] $vCenterServer,
+
 [parameter(Mandatory=$false,HelpMessage="
     When set to true means script output tells user everything
     that is happening throughout the script.
     If you want lighter feedback, enable the succinct flag.
-")][bool] $verb = $false,
-   [parameter(Mandatory=$false,HelpMessage="
+")]
+[bool] $verb = $false,
+
+[parameter(Mandatory=$false,HelpMessage="
     When set to true means the script will give you summary
     output throughout the script.
     If you want more feedback, try the verbose flag.
-")][bool] $succinct = $false,
+")]
+[bool] $succinct = $false,
+
 [parameter(Mandatory=$true,HelpMessage="
-    This is the account that you will use to connect to vCenter")]
-    [PSCredential] $vCredential,
+    This is the account that you will use to connect to vCenter
+")]
+[PSCredential] $vCredential,
+
 [parameter(Mandatory=$false,HelpMessage="
     Use this to keep from sending an email on each run of the script.  Great for debugging and fixing existing problem machines.
-")] [bool] $SendEmail=$false,
+")]
+[bool] $sendEmail = $false,
+
 [parameter(Mandatory=$false,HelpMessage="
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     !!                                                       !!
@@ -89,7 +101,8 @@ Param(
     !!  most, but some may do harm to their environemnt.     !!
     !!                                                       !!
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-")] [bool]$iWantToLiveDangerously=$false)
+")]
+[bool]$iWantToLiveDangerously=$false)
 
 
 ########
@@ -167,13 +180,15 @@ $vmhosts = Get-VMhost
 
 $results = $vmhosts | Select-Object Name
 
-$results | add-member -MemberType NoteProperty -Name Connection_State -Value NotSet
-$results | add-member -MemberType NoteProperty -Name Reboot_Required -Value No
-$results | add-member -MemberType NoteProperty -Name Found_ATS_HB -Value NotSet
-$results | add-member -MemberType NoteProperty -Name Found_Queue_Depth -Value NotSet
-$results | add-member -MemberType NoteProperty -Name Found_Delayed_Ack -Value NoAdaptorPresent
-$results | add-member -MemberType NoteProperty -Name Found_NMP_SATP_Rule -Value NotSet
+$results | add-member -MemberType NoteProperty -Name Connection -Value NotSet
+$results | add-member -MemberType NoteProperty -Name NeedsReboot -Value No
+$results | add-member -MemberType NoteProperty -Name ATS_HB -Value NotSet
+$results | add-member -MemberType NoteProperty -Name Queue_Depth -Value NotSet
+$results | add-member -MemberType NoteProperty -Name Delayed_Ack -Value NoAdaptorPresent
+$results | add-member -MemberType NoteProperty -Name NMP_SATP_Rule -Value NotSet
 $results | add-member -MemberType NoteProperty -Name Opt_Status -Value Unknown
+$results | add-member -MemberType NoteProperty -Name QF_SampleSize -Value NotSet
+$results | add-member -MemberType NoteProperty -Name QF_Threshold -Value NotSet
 
 ########
 ########   SCRIPT START
@@ -290,7 +305,7 @@ Write-Host -ForegroundColor Green "
 foreach ($esx in $vmhosts)
 {
     $index = [array]::IndexOf($vmhosts, $esx)
-    $results[$index].Connection_State = $esx.ConnectionState
+    $results[$index].Connection = $esx.ConnectionState
     if ($esx.ConnectionState -ne "NotResponding"){
         $results[$index].Opt_Status = "Optimal"
         if ($verbose -eq $true -or $succinct -eq $true){
@@ -311,7 +326,7 @@ foreach ($esx in $vmhosts)
 
         if ($verbose) {Write-Output ("==== ATS heartbeat on " + $esx.Name + " (1:enabled 0:disabled) " + " ====")}
         $setting = Get-AdvancedSetting -Entity $esx -Name VMFS3.UseATSForHBOnVMFS5
-        $results[$index].Found_ATS_HB = $setting.Value
+        $results[$index].ATS_HB = $setting.Value
         if ($verbose)
         {
             $setting | Format-List | Format-Color @{"Value\s*:\s*1$" = 'Red'; "Value\s*:\s*0" = 'Green'}
@@ -323,13 +338,13 @@ foreach ($esx in $vmhosts)
             if ($safeHosts.Contains($esx))
             {
                 if ($verbose -or $succinct){Write-Host "Identified this as a safe host to fix automatically, Attempting fix."}
-                $results[$index].Reboot_Required = "Yes"
+                $results[$index].NeedsReboot = "Yes"
                 $setChange = Get-AdvancedSetting -Entity $esx -Name VMFS3.UseATSForHBOnVMFS5 | Set-AdvancedSetting -Value 0 -Confirm:$false
                 if ($verbose -or $succinct){
                     if ($setChange.Value -eq 0)
                     {
                         Write-Host "Fix successful." -ForegroundColor Green
-                        $results[$index].Found_ATS_HB = $setChange.Value
+                        $results[$index].ATS_HB = $setChange.Value
                     }
                     else
                     {Write-Host "Fix Failed." -foregroundColor Red }
@@ -372,12 +387,12 @@ foreach ($esx in $vmhosts)
         $optimalQD = $true
         if ($setting.Value -eq "")
         {
-            $results[$index].Found_Queue_Depth = "NotConfigured"
+            $results[$index].Queue_Depth = "NotConfigured"
             $optimalQD = $false
         }
         else
         {
-            $results[$index].Found_Queue_Depth = $Setting.Value
+            $results[$index].Queue_Depth = $Setting.Value
             if ($setting.Value -ne $DateraIscsiQueueDepth ){
                 $optimalQD = $false}
         }
@@ -391,13 +406,13 @@ foreach ($esx in $vmhosts)
             try {
                 $setChange = $esxcli.system.module.parameters.set.Invoke($qDepth)
                 Write-Host "Fix successful." -ForegroundColor Green
-                $results[$index].Found_Queue_Depth = $setChange.Value
+                $results[$index].Queue_Depth = $setChange.Value
             }
             catch
             {Write-Host "Fix Failed." -foregroundColor Red }
 
         }
-        if ($results[$index].Found_Queue_Depth -ne $DateraIscsiQueueDepth  -and $results[$index].Opt_Status -eq "Optimal") {$results[$index].Opt_Status = "Suboptimal"}
+        if ($results[$index].Queue_Depth -ne $DateraIscsiQueueDepth  -and $results[$index].Opt_Status -eq "Optimal") {$results[$index].Opt_Status = "Suboptimal"}
 
 
 
@@ -441,7 +456,7 @@ foreach ($esx in $vmhosts)
                 if ($setting.Current -eq "false"){Write-Host "Delayed Ack is off." -ForegroundColor Green}
                 else{Write-Host "Deviation: Delayed Ack is on." -ForegroundColor Red}
             }
-            $results[$index].Found_Delayed_Ack = $setting.Current
+            $results[$index].Delayed_Ack = $setting.Current
             if ($setting.Current -eq "true")
             {
                 if($safehosts.Contains($esx)){
@@ -460,13 +475,13 @@ foreach ($esx in $vmhosts)
 
 
                         Write-Host "Fix successful." -ForegroundColor Green
-                        $results[$index].Found_Delayed_Ack = "false"
+                        $results[$index].Delayed_Ack = "false"
                     }
                     catch
                     {Write-Host "Fix Failed." -foregroundColor Red }
                 }
             }
-            if ($results[$index].Found_Delayed_Ack -eq "true" -and $results[$index].Opt_Status -eq "Optimal")
+            if ($results[$index].Delayed_Ack -eq "true" -and $results[$index].Opt_Status -eq "Optimal")
                 {$results[$index].Opt_Status = "Suboptimal"}
         }
 
@@ -475,7 +490,7 @@ foreach ($esx in $vmhosts)
             if ($verbose -eq $true -or $succinct -eq $true){
                 Write-Host -ForegroundColor Red "Deviation: No iSCSI Adapter Found."
             }
-            $results[$index].Found_Delayed_Ack = "NoAdapter"
+            $results[$index].Delayed_Ack = "NoAdapter"
         }
 
 
@@ -537,7 +552,7 @@ foreach ($esx in $vmhosts)
         $NmpSatpRule = $esxcli.storage.nmp.satp.rule.list.Invoke() | Where{$_.Vendor -eq "DATERA"}
         if ($NmpSatpRule -eq $null) {
             if ($verbose -or $succinct){ Write-Host -ForegroundColor Red "Deviation: No customized NMP SATP RULE for DATERA on $($esx.Name)"}
-            $results[$index].Found_NMP_SATP_Rule = 'NotPresent'
+            $results[$index].NMP_SATP_Rule = 'NotPresent'
             if ($safeHosts.Contains($esx))
             {
                 if ($verbose -or $succinct){Write-Host "Identified this as a safe host to fix automatically, Attempting fix."}
@@ -551,7 +566,7 @@ foreach ($esx in $vmhosts)
 
                 if ($result){
                         if ($verbose -or $succinct){Write-Host "DATERA custom SATP rule [RR, iops=1] is created for $($esx.name)" -ForegroundColor Green}
-                        $results[$index].Found_NMP_SATP_Rule = 'Present'
+                        $results[$index].NMP_SATP_Rule = 'Present'
 
                 if ($verbose){
                          Write-Host "
@@ -570,13 +585,13 @@ foreach ($esx in $vmhosts)
                 }
                 else
                 {
-                   $results[$index].Found_NMP_SATP_Rule = 'NotPresent'
+                   $results[$index].NMP_SATP_Rule = 'NotPresent'
                     if ($results[$index].Opt_Status -eq "Optimal"){$results[$index].Opt_Status = "Suboptimal"}
                 }
             }
             else
             {
-               $results[$index].Found_NMP_SATP_Rule = 'NotPresent'
+               $results[$index].NMP_SATP_Rule = 'NotPresent'
                if ($results[$index].Opt_Status -eq "Optimal"){$results[$index].Opt_Status = "Suboptimal"}
             }
         }
@@ -584,52 +599,120 @@ foreach ($esx in $vmhosts)
         {
             if ($verbose) {Write-Output ($NmpSatpRule) | Format-Color @{'' = 'Green'}}
             if ($succinct) {Write-Host -ForegroundColor Green "Found expected NMP SATP Rule."}
-            $results[$index].Found_NMP_SATP_Rule = 'Present'
+            $results[$index].NMP_SATP_Rule = 'Present'
         }
 
+########
+########    Item 5: Automatic Queue Depth
+########
+##
+##  Set QueueFullSampleSize for Software iSCSI initiator to 32
+##  Default value is 0
+##  Datera recommended value is 32
+##
+##  Set QueueFullThreshold for Software iSCSI initiator to 4
+##  Default value is 0
+##  Datera recommended value is 4
+########
 
+        if ($verbose -eq $true) {Write-Output ("==== Automatic Queue Depth of DATERA on " + $esx.Name + " ====")}
+        $optimalQF = $true
+        $results[$index].QF_SampleSize = "Compliant"
+        $results[$index].QF_Threshold = "Compliant"
+        $luns = $esx.ExtensionData.config.StorageDevice.ScsiLun | Where{$_.Vendor -match  "DATERA"}
+        foreach($lun in $luns) {
+            $params = @{device=$lun.CanonicalName}
+            $sample_size = $esxcli.storage.core.device.list.Invoke($params).QueueFullSampleSize
+            $threshold = $esxcli.storage.core.device.list.Invoke($params).QueueFullThreshold
+
+            if ($sample_size -eq $DateraLunQueueFullSampleSize) {
+                if ($succinct -eq $true -or $verbose -eq $true) {
+                        Write-Host -ForegroundColor Green "Lun $($lun.CanonicalName) Queue Full Sample Size is $sample_size"
+                }
+            } else {
+                if ($succinct -eq $true -or $verbose -eq $true) {
+                    Write-Host -ForegroundColor Red "Deviation: Lun $($lun.CanonicalName) Queue Full Sample Size is $sample_size"
+                }
+                $results[$index].QF_SampleSize = "Not Compliant"
+                $optimalQF = $false
+            }
+
+            if ($threshold -eq $DateraLunQueueFullThreshold) {
+                if ($succinct -eq $true -or $verbose -eq $true) {
+                    Write-Host -ForegroundColor Green "Lun $($lun.CanonicalName) Queue Full Threshold is $threshold"
+                }
+            } else {
+                if ($succinct -eq $true -or $verbose -eq $true) {
+                    Write-Host -ForegroundColor Red "Deviation: Lun $($lun.CanonicalName) Queue Full Threshold is $threshold"
+                }
+                $results[$index].QF_Threshold= "Not Compliant"
+                $optimalQF = $false
+            }
+        } # end of Lun iteration
+        if (-not $optimalQF -and $safeHosts.Contains($esx)) {
+            if ($verbose -or $succinct) {Write-Host "Identified this as a safe host to fix automatically, Attempting fix."}
+            foreach($lun in $luns) {
+                try {
+                    $params = @{device=$lun.CanonicalName; queuefullsamplesize=$DateraLunQueueFullSampleSize; queuefullthreshold=$DateraLunQueueFullThreshold}
+                    $esxcli.storage.core.device.set.Invoke($params)
+                    Write-Host "Fix successful." -ForegroundColor Green
+                    $results[$index].QF_SampleSize = "Compliant"
+                    $results[$index].QF_Threshold = "Compliant"
+                } catch {
+                    Write-Host "Fix Failed." -foregroundColor Red
+                }
+            }
+        }
+        if ($results[$index].QF_SampleSize -ne "Compliant" -and $results[$index].Opt_Status -eq "Optimal") {$results[$index].Opt_Status = "Suboptimal"}
+        if ($results[$index].QF_Threshold -ne "Compliant" -and $results[$index].Opt_Status -eq "Optimal") {$results[$index].Opt_Status = "Suboptimal"}
 
 ########
 ########    Cleanup
 ########
 
-    if ($verbose -or $succinct)
-    {
-        if($results[$index].Opt_Status -ne "Optimal")
-        {
-            if($results[$index].Connection_State -eq "Maintenance")
+        if ($verbose -or $succinct) {
+            if($results[$index].Opt_Status -ne "Optimal")
             {
-                Write-Host "Host is in Maintenance Mode, Run script with update parmeter to fix." -ForegroundColor Green
+                if($results[$index].Connection -eq "Maintenance")
+                {
+                    Write-Host "Host is in Maintenance Mode, Run script with update parmeter to fix." -ForegroundColor Green
+                }
+                elseif ($results[$index].ATS_HB -eq 0)
+                {
+                    Write-Host "Please consider fixing this host for performance improvements." -ForegroundColor Yellow
+                }
+                else
+                {
+                    Write-Host "This host is a danger to your environment.  Fix immediately!" -ForegroundColor Red
+                }
             }
-            elseif ($results[$index].Found_ATS_HB -eq 0)
-            {
-                Write-Host "Please consider fixing this host for performance improvements." -ForegroundColor Yellow
-            }
-            else
-            {
-                Write-Host "This host is a danger to your environment.  Fix immediately!" -ForegroundColor Red
-            }
+            Write-Host ""
         }
-        Write-Host ""
-    }
-}
+    } # end of non responding if
 
-}
+} # esx loop
 
 ########
 ########     Output
 ########
 
 if ($verbose -or $succinct){
-Write-PSObject $results -MatchMethod Exact, Exact, Exact, Query, Query, Query, `
-                                     Exact, Exact, Query, Query, Exact, Exact, Query, Exact `
-                        -Column "Opt_Status", "Connection_State", "Found_ATS_HB", "Found_Queue_Depth", "Found_Delayed_Ack", "Found_NMP_SATP_Rule", `
-                                    "Found_ATS_HB", "Found_Queue_Depth", "Found_Delayed_Ack", "Name", "Opt_Status" , "Opt_Status", "Name", "Reboot_Required" `
-                        -Value "Critical", "Maintenance", "1", "'Found_Queue_Depth' -ne '16'", "'Found_Delayed_Ack' -ne 'false'", "'Found_NMP_SATP_Rule' -ne 'Present'", `
-                                    "0", 16, "'Found_Delayed_Ack' -eq 'false'", "'Opt_Status' -eq 'Critical' -and 'Connection_State' -ne 'Maintenance'", `
-                                    "Suboptimal", "Optimal", "'Opt_Status' -eq 'Suboptimal' -and 'Connection_State' -ne 'Maintenance'", "Yes"  `
-                        -ValueForeColor Red, Green, Red, Red, Red, Red, `
-                                    Green, Green, Green, Red, Yellow, Green, Yellow, Cyan, White
+Write-PSObject $results -MatchMethod Query, Query, Exact, Exact, `
+                                     Exact, Exact, Query, Exact, Exact, Exact, `
+                                     Query, Exact, Exact, Exact, Exact, Exact, `
+                                     Exact, Exact, Exact `
+                        -Column "Name", "Name", "Connection", "NeedsReboot", `
+                                "ATS_HB", "ATS_HB", "Queue_Depth", "Queue_Depth", "Delayed_Ack", "Delayed_Ack", `
+                                "NMP_SATP_Rule", "NMP_SATP_Rule", "QF_SampleSize", "QF_SampleSize", "QF_Threshold", "QF_Threshold", `
+                                "Opt_Status" , "Opt_Status", "Opt_Status" `
+                        -Value  "'Opt_Status' -eq 'Critical' -and 'Connection' -ne 'Maintenance'", "'Opt_Status' -eq 'Suboptimal' -and 'Connection' -ne 'Maintenance'", "Maintenance", "Yes", `
+                                "1", "0", "'Queue_Depth' -ne '16'", 16, "true", "false", `
+                                "'NMP_SATP_Rule' -ne 'Present'", "Present", "Compliant", "Not Compliant", "Compliant", "Not Compliant", `
+                                "Critical", "Suboptimal", "Optimal" `
+                        -ValueForeColor Red, Yellow, Green, Cyan, `
+                                        Red, Green, Red, Green, Red, Green, `
+                                        Red, Green, Green, Yellow, Green, Yellow, `
+                                        Red, Yellow, Green
 
 }
 
@@ -650,7 +733,7 @@ foreach ($esxiHost in $results)
     if ($esxiHost.Opt_Status -eq "Suboptimal"){
         $suboptimal++
     }
-    if ($esxiHost.Reboot_Required -eq "Yes"){
+    if ($esxiHost.NeedsReboot -eq "Yes"){
         $rebootNeeded ++
     }
 }
@@ -658,7 +741,7 @@ if ($critical -gt 0 -or $suboptimal -gt 0 -or $rebootNeeded -gt 0)
 {
     Write-Host "
     Found $critical Critical, $maintmode MM Critical, and $suboptimal Suboptimal hosts in $vcenterServer"
-    Write-Host "$rebootNeeded Hosts need to be rebooted."
+    Write-Host "$rebootNeeded Host(s) need to be rebooted."
     $Header = @"
 <style>
 TABLE {  font-family: Tahoma, Geneva, sans-serif;
@@ -674,7 +757,7 @@ H3 {font-family: Tahoma, Geneva, sans-serif;}
 
     $body =  $results | ConvertTo-Html -Body "<h2>Found $critical Critical, $maintmode MM Critical, and $suboptimal Suboptimal hosts in $vcenterServer </h2>" -Head $header -PostContent "<h3>Better living through automation.(tm)</h3>Report run at $((get-date).ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss UTC"))" | Out-String
 
-    if ($SendEmail)
+    if ($sendEmail)
     {
         if ($critical -gt 0 )
         {$subject = "[CRITICAL] Datera Config Checker: $vcenterServer"
