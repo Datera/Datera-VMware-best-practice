@@ -16,21 +16,25 @@ Preparation 2 - Install VMware PowerCLI on the node you want to run the script
         1. Go to powershell console
         2a. On Linux/MacOS run the command
             PS> Install-Module -Name VMware.PowerCLI
-        2b. On Linux/MacOS run the command
+        2b. On Windows run the command
             PS> Install-Module -Name VMware.PowerCLI -RequiredVersion 6.5.4.7155375
 
 
 Features
 --------
-    Powercli script Datera_VMWare_setup.ps1 is a tool to display and
-    configure 4 storage or iSCSI parameters on ESXi hosts via vCenter based on
-    Datera VMware best practice.
+    Powercli script Datera_VMWare_setup.ps1 is a tool to display and configure
+    several storage or iSCSI parameters on ESXi hosts via vCenter based on
+    Datera VMware Best Practices.
 
-    ### Datera requires 4 parameters to be set on ESX hosts ###
+    ### Datera requires these parameters to be set on ESX hosts ###
         - ATS heartbeat                     -- Disabled
         - iSCSI Queue Depth                 -- 16
         - DelayedACK of SW iSCSI adapter    -- Disabled
         - DATERA NMP SATP rule              -- Round Robin and IOPS=1 for Datera storage
+        - Automatic Queue Depth control for each LUN
+                                            -- QueueFullSampleSize = 32
+                                            -- QueueFullThreshold = 4
+
 
     ### How to run ###
         1. Download/clone the github repository into your current directory
@@ -43,7 +47,7 @@ Features
 
     ### Script parameters
         * For a complete and most up to date description of the script parameters,
-        * please refer to thec omments in the script itself.
+          please refer to the comments in the script itself.
 
         -Update (bool, default $false)
             Attempt to correct the deviations from best practices found
@@ -55,7 +59,7 @@ Features
             Verbose. If you want lighter feedback, enable the succinct flag.
         -succinct (boolean, default $false)
             Summary output throughout the script. For more feedback, try the verbose flag.
-        -SendEmail (boolean, default $false)
+        -sendEmail (boolean, default $false)
             Send an email for script execution. Set proper parameters in constants.ps1
         
     ### Tested environments ###
