@@ -33,7 +33,7 @@ Param(
      !!  ESXi hosts without datastore/storage.              !!
      !!    - Disable ATS Heartbeat                          !!
      !!    - Disable DelayedAck on software iSCSI adapter   !!
-     !!    - Set iSCSI queue depth to 16                    !!
+     !!    - Set iSCSI queue depth to DateraIscsiQueueDepth !!
      !!    - Set Datera NMP SATP Rule to                    !!
      !!      VMW_PSP_RR and IOPS = 1                        !!
      !!                                                     !!
@@ -83,6 +83,13 @@ Param(
     Use this to keep from sending an email on each run of the script.  Great for debugging and fixing existing problem machines.
 ")]
 [bool] $sendEmail = $false,
+
+[parameter(Mandatory=$false,HelpMessage="
+    Datera Software version. Used to set the correct ATS HB value
+    For Datera versions 3.3.5.2 and below, it is recommended to DISABLE ATS HB
+    For Datera versions 3.3.5.3 and above, it is recommended to ENABLE ATS HB on all flash arrays
+")]
+[string] $version = "3.3.5.3",
 
 [parameter(Mandatory=$false,HelpMessage="
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -151,6 +158,12 @@ Write-Host "      Datera® VMware® Best Practices
           Configuration Script
           "
 $verbose = $verb
+
+if ([System.Version]$version -lt [System.Version]"3.3.5.3") {
+    $required_ATS_HB = 0
+} else {
+    $required_ATS_HB = 1
+}
 
 if ($vCredential -eq $null)
 {
@@ -221,9 +234,10 @@ Write-Host -ForegroundColor Green "    !!                                       
     !! You can:                                              !!
     !! 1.  Remove iSCSI targets from dynamic discovery and   !!
     !!     static target, removing the iSCSI targets will    !!
-    !!     cause your ESXi datastore misfunction. You need   !!
-    !!     to know what you're doing and risks               !!
-    !!     Re-run this script again after removing them      !!
+    !!     cause your ESXi datastore to malfunction. You
+    !!     need to know what you're doing and the risks      !!
+    !!     invloved. Re-run this script again after removing !!
+    !!     iSCSI targets.                                    !!
     !!                                                       !!
     !! 2.  If you really want to run this script despite     !!
     !!     this safety check, you can acknowledge this risk  !!
@@ -257,10 +271,10 @@ Determining which hosts are safe to update."}
         if ($esx.ConnectionState -eq "Maintenance" -or $iWantToLiveDangerously)
         {
             $safeHosts += $esx
-            if ($verbose) {Write-Host "$($esx.name) is in Maintenance or you want to live dangerously"}
+            if ($verbose) {Write-Host "$($esx.name) is in Maintenance or you want to live dangerously" -ForegroundColor Green}
             continue
         }
-        if ($verbose) {Write-Host "$($esx.name) is not in Maintenance Mode. Checking iSCSI Adapters..."}
+        if ($verbose) {Write-Host "$($esx.name) is not in Maintenance Mode. Checking iSCSI Adapters..." -ForegroundColor Yellow}
         $IscsiHba = $esx | Get-VMHostHba -Type iScsi | Where {$_.Model -eq "iSCSI Software Adapter"}
         if ($IscsiHba -eq $null)
         {
@@ -275,22 +289,28 @@ Determining which hosts are safe to update."}
         }
         else
         {
-            if ($verbose) {Write-Host "iSCSI Targets found, $($esx.Name) is unsafe."}
+            if ($verbose) {Write-Host "iSCSI Targets found, $($esx.Name) is unsafe." -ForegroundColor Red}
         }
 
     }
-    if ($succinct) {Write-Host "Identified $($safehosts.Count) hosts available to update."}
+    if ($succinct) {
+        Write-Host "Identified $($safehosts.Count) hosts available to update."
+        Write-Host ""
+    }
 }
 
 if ($verbose -or $succinct) {
-    Write-Host "This script will:
- - Disable ATS heartbeat on all ESXi hosts, otherwise iSCSI will misfunction
- - Set up iSCSI Queue Depth to be optimal per recommendation
+    Write-Host "This script will:"
+    if ($required_ATS_HB -eq 0) {
+        Write-Host " - Disable ATS heartbeat on all ESXi hosts, otherwise iSCSI will malfunction"
+    } else {
+        Write-Host " - Enable ATS heartbeat on all ESXi hosts"
+    }
+    Write-Host " - Set up iSCSI Queue Depth to be optimal per recommendation
  - Turn Off DelayedAck for improved performance in virtual Workloads
  - Set the NMP SATP Rule for optimal default datastore creation
 "
 }
-
 
 if ($verbose -eq $true) {
 Write-Host -ForegroundColor Green "
@@ -317,9 +337,17 @@ foreach ($esx in $vmhosts)
 ########
 ########    Item 1: ATS heartbeat
 ########
-##    Disable ATS Heartbeat on each ESXi host
+##    Disable/Enable ATS Heartbeat on each ESXi host
+##    Datera recommends ATS HB Enabled only under the following conditions:
+##    - Datera OS 3.3.5.3 & above
+##    - All Flash Node
+##    - ESXi 6.5 & above
+##
 ##    Alternate method of implementation:
+##        - disable
 ##        esxcli system settings advanced set -i 0 -o /VMFS3/UseATSForHBOnVMFS5
+##        - enable
+##        esxcli system settings advanced set -i 1 -o /VMFS3/UseATSForHBOnVMFS5
 ##
 ##    For details, please refer to https://kb.vmware.com/s/article/2113956#>
 ########
@@ -329,32 +357,33 @@ foreach ($esx in $vmhosts)
         $results[$index].ATS_HB = $setting.Value
         if ($verbose)
         {
-            $setting | Format-List | Format-Color @{"Value\s*:\s*1$" = 'Red'; "Value\s*:\s*0" = 'Green'}
+            $setting | Format-List | Format-Color @{"Value\s*:\s(?!$required_ATS_HB)" = 'Red'; "Value\s*:\s*$required_ATS_HB" = 'Green'}
         }
-        if ($setting.value -eq 1)
+        if ($setting.value -ne $required_ATS_HB)
         {
-            if ($succinct) {Write-Host -ForegroundColor Red "DANGER: ATS For Heartbeat is On."}
+            if ($succinct) {Write-Host -ForegroundColor Red "ATS For Heartbeat is not $required_ATS_HB"}
             $results[$index].Opt_Status = "Critical"
             if ($safeHosts.Contains($esx))
             {
                 if ($verbose -or $succinct){Write-Host "Identified this as a safe host to fix automatically, Attempting fix."}
                 $results[$index].NeedsReboot = "Yes"
-                $setChange = Get-AdvancedSetting -Entity $esx -Name VMFS3.UseATSForHBOnVMFS5 | Set-AdvancedSetting -Value 0 -Confirm:$false
+                $setChange = Get-AdvancedSetting -Entity $esx -Name VMFS3.UseATSForHBOnVMFS5 | Set-AdvancedSetting -Value $required_ATS_HB -Confirm:$false
                 if ($verbose -or $succinct){
-                    if ($setChange.Value -eq 0)
-                    {
+                    if ($setChange.Value -eq $required_ATS_HB) {
                         Write-Host "Fix successful." -ForegroundColor Green
                         $results[$index].ATS_HB = $setChange.Value
+                        $results[$index].Opt_Status = "Optimal"
+                    } else {
+                        Write-Host "Fix Failed." -foregroundColor Red
+                        exit
                     }
-                    else
-                    {Write-Host "Fix Failed." -foregroundColor Red }
                     Write-Host -ForegroundColor Cyan "You will need to reboot this host."
                 }
             }
         }
         elseif ($succinct -eq $true)
         {
-            Write-Host -ForegroundColor Green "ATS for Heartbeat on VMFS 5 Disabled."
+            Write-Host -ForegroundColor Green "ATS Heartbeat correctly set to $required_ATS_HB."
         }
 
 
@@ -362,11 +391,14 @@ foreach ($esx in $vmhosts)
 ########    Item 2: Queue Depth
 ########
 ##
-##  Set Queue Depth for Software iSCSI initiator to 16
+##  Set Queue Depth for Software iSCSI initiator to DateraIscsiQueueDepth
 ##  Default value is 128 or 256
-##  Datera recommended value is 16
+##  Datera recommended value is 32
+##  This value can be modified in constants.ps1, e.g.
+##  $DateraIscsiQueueDepth = '32' # Datera recommends 32
+##
 ##  Alternate method of implementation:
-##      esxcli system module parameters set -m iscsi_vmk -p iscsivmk_LunQDepth=16
+##      esxcli system module parameters set -m iscsi_vmk -p iscsivmk_LunQDepth=32
 ##
 ##  Check the command result:
 ##      esxcli system module parameters list -m iscsi_vmk | grep iscsivmk_LunQDepth
@@ -376,7 +408,7 @@ foreach ($esx in $vmhosts)
         $esxcli = get-esxcli -VMHost $esx -v2
         $setting = $esxcli.system.module.parameters.list.Invoke(@{module="iscsi_vmk"}) | Where-Object {$_.Name -eq 'iscsivmk_LunQDepth'}
 
-        if ($verbose -eq $true){ $setting | Format-List | Format-Color @{"Value\s*:\s(?!16)" = 'Red'; "Value\s*:\s*$DateraIscsiQueueDepth " = 'Green'}}
+        if ($verbose -eq $true){ $setting | Format-List | Format-Color @{"Value\s*:\s(?!$DateraIscsiQueueDepth)" = 'Red'; "Value\s*:\s*$DateraIscsiQueueDepth " = 'Green'}}
         if ($succinct -eq $true)
         {
             if ($setting.value -eq $DateraIscsiQueueDepth )
@@ -406,10 +438,12 @@ foreach ($esx in $vmhosts)
             try {
                 $setChange = $esxcli.system.module.parameters.set.Invoke($qDepth)
                 Write-Host "Fix successful." -ForegroundColor Green
-                $results[$index].Queue_Depth = $setChange.Value
+                $results[$index].Queue_Depth = $DateraIscsiQueueDepth
             }
-            catch
-            {Write-Host "Fix Failed." -foregroundColor Red }
+            catch {
+                Write-Host "Fix Failed." -foregroundColor Red
+                exit
+            }
 
         }
         if ($results[$index].Queue_Depth -ne $DateraIscsiQueueDepth  -and $results[$index].Opt_Status -eq "Optimal") {$results[$index].Opt_Status = "Suboptimal"}
@@ -478,7 +512,10 @@ foreach ($esx in $vmhosts)
                         $results[$index].Delayed_Ack = "false"
                     }
                     catch
-                    {Write-Host "Fix Failed." -foregroundColor Red }
+                    {
+                        Write-Host "Fix Failed." -foregroundColor Red
+                        exit
+                    }
                 }
             }
             if ($results[$index].Delayed_Ack -eq "true" -and $results[$index].Opt_Status -eq "Optimal")
@@ -660,6 +697,7 @@ foreach ($esx in $vmhosts)
                     $results[$index].QF_Threshold = "Compliant"
                 } catch {
                     Write-Host "Fix Failed." -foregroundColor Red
+                    exit
                 }
             }
         }
@@ -677,13 +715,13 @@ foreach ($esx in $vmhosts)
                 {
                     Write-Host "Host is in Maintenance Mode, Run script with update parmeter to fix." -ForegroundColor Green
                 }
-                elseif ($results[$index].ATS_HB -eq 0)
+                elseif ($results[$index].ATS_HB -eq $required_ATS_HB)
                 {
                     Write-Host "Please consider fixing this host for performance improvements." -ForegroundColor Yellow
                 }
                 else
                 {
-                    Write-Host "This host is a danger to your environment.  Fix immediately!" -ForegroundColor Red
+                    Write-Host "This host is a danger to your environment. Fix immediately!" -ForegroundColor Red
                 }
             }
             Write-Host ""
@@ -706,7 +744,7 @@ Write-PSObject $results -MatchMethod Query, Query, Exact, Exact, `
                                 "NMP_SATP_Rule", "NMP_SATP_Rule", "QF_SampleSize", "QF_SampleSize", "QF_Threshold", "QF_Threshold", `
                                 "Opt_Status" , "Opt_Status", "Opt_Status" `
                         -Value  "'Opt_Status' -eq 'Critical' -and 'Connection' -ne 'Maintenance'", "'Opt_Status' -eq 'Suboptimal' -and 'Connection' -ne 'Maintenance'", "Maintenance", "Yes", `
-                                "1", "0", "'Queue_Depth' -ne '16'", 16, "true", "false", `
+                                "1", "0", "'Queue_Depth' -ne $DateraIscsiQueueDepth", $DateraIscsiQueueDepth, "true", "false", `
                                 "'NMP_SATP_Rule' -ne 'Present'", "Present", "Compliant", "Not Compliant", "Compliant", "Not Compliant", `
                                 "Critical", "Suboptimal", "Optimal" `
                         -ValueForeColor Red, Yellow, Green, Cyan, `
