@@ -361,7 +361,7 @@ foreach ($esx in $vmhosts)
         }
         if ($setting.value -ne $required_ATS_HB)
         {
-            if ($succinct) {Write-Host -ForegroundColor Red "ATS For Heartbeat is not $required_ATS_HB"}
+            if ($succinct) {Write-Host -ForegroundColor Red "ATS Heartbeat is not $required_ATS_HB"}
             $results[$index].Opt_Status = "Critical"
             if ($safeHosts.Contains($esx))
             {
@@ -404,17 +404,17 @@ foreach ($esx in $vmhosts)
 ##      esxcli system module parameters list -m iscsi_vmk | grep iscsivmk_LunQDepth
 ########
 
-        if ($verbose -eq $true){ Write-Output ("==== iSCSI Queue depth on " + $esx.Name + " ====")}
+        if ($verbose -eq $true){ Write-Output ("==== iSCSI Queue Depth on " + $esx.Name + " ====")}
         $esxcli = get-esxcli -VMHost $esx -v2
         $setting = $esxcli.system.module.parameters.list.Invoke(@{module="iscsi_vmk"}) | Where-Object {$_.Name -eq 'iscsivmk_LunQDepth'}
 
-        if ($verbose -eq $true){ $setting | Format-List | Format-Color @{"Value\s*:\s(?!$DateraIscsiQueueDepth)" = 'Red'; "Value\s*:\s*$DateraIscsiQueueDepth " = 'Green'}}
+        if ($verbose -eq $true){ $setting | Format-List | Format-Color @{"Value\s*:\s(?!$DateraIscsiQueueDepth)" = 'Red'; "Value\s*:\s*$DateraIscsiQueueDepth" = 'Green'}}
         if ($succinct -eq $true)
         {
             if ($setting.value -eq $DateraIscsiQueueDepth )
-            {    Write-Host -ForegroundColor Green "iSCSI queue depth is $($setting.value)"}
+            {    Write-Host -ForegroundColor Green "iSCSI Queue Depth is $($setting.value)"}
             else
-            {    Write-Host -ForegroundColor Red "Deviation: iSCSI queue depth is $($setting.value)"}
+            {    Write-Host -ForegroundColor Red "Deviation: iSCSI Queue Depth is $($setting.value)"}
         }
         $optimalQD = $true
         if ($setting.Value -eq "")
@@ -736,7 +736,7 @@ foreach ($esx in $vmhosts)
 
 if ($verbose -or $succinct){
 Write-PSObject $results -MatchMethod Query, Query, Exact, Exact, `
-                                     Exact, Exact, Query, Exact, Exact, Exact, `
+                                     Query, Exact, Query, Exact, Exact, Exact, `
                                      Query, Exact, Exact, Exact, Exact, Exact, `
                                      Exact, Exact, Exact `
                         -Column "Name", "Name", "Connection", "NeedsReboot", `
@@ -744,7 +744,7 @@ Write-PSObject $results -MatchMethod Query, Query, Exact, Exact, `
                                 "NMP_SATP_Rule", "NMP_SATP_Rule", "QF_SampleSize", "QF_SampleSize", "QF_Threshold", "QF_Threshold", `
                                 "Opt_Status" , "Opt_Status", "Opt_Status" `
                         -Value  "'Opt_Status' -eq 'Critical' -and 'Connection' -ne 'Maintenance'", "'Opt_Status' -eq 'Suboptimal' -and 'Connection' -ne 'Maintenance'", "Maintenance", "Yes", `
-                                "1", "0", "'Queue_Depth' -ne $DateraIscsiQueueDepth", $DateraIscsiQueueDepth, "true", "false", `
+                                "'ATS_HB' -ne $required_ATS_HB", "$required_ATS_HB", "'Queue_Depth' -ne $DateraIscsiQueueDepth", $DateraIscsiQueueDepth, "true", "false", `
                                 "'NMP_SATP_Rule' -ne 'Present'", "Present", "Compliant", "Not Compliant", "Compliant", "Not Compliant", `
                                 "Critical", "Suboptimal", "Optimal" `
                         -ValueForeColor Red, Yellow, Green, Cyan, `

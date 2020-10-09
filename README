@@ -107,3 +107,11 @@ Q: How can I create a SECURE PSCredential object to pass to the script?
 A: PS> $secpasswd = "<my_password>" | ConvertTo-SecureString -asPlainText -Force
    PS> $username = "vsphere.local\administrator" 
    PS> $mycreds = New-Object System.Management.Automation.PSCredential ($username, $secpasswd)
+
+Q: I am getting for following error:
+   Exception
+    + FullyQualifiedErrorId : CommandAlreadyAvailable,Validate-ModuleCommandAlreadyAvailable,
+    Microsoft.PowerShell.PackageManagement.Cmdlets.InstallPackage
+A: You already have a version of VMware PowerCLI module installed,
+   please add -AllowClobber to your install command, to allow PS to overwrite the commands, e.g.
+   PS> Install-Module -Name VMware.PowerCLI -RequiredVersion 6.5.4.7155375 -AllowClobber
