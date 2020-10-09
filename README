@@ -19,7 +19,6 @@ Preparation 2 - Install VMware PowerCLI on the node you want to run the script
         2b. On Windows run the command
             PS> Install-Module -Name VMware.PowerCLI -RequiredVersion 6.5.4.7155375
 
-
 Features
 --------
     Powercli script Datera_VMWare_setup.ps1 is a tool to display and configure
@@ -27,14 +26,14 @@ Features
     Datera VMware Best Practices.
 
     ### Datera requires these parameters to be set on ESX hosts ###
-        - ATS heartbeat                     -- Disabled
-        - iSCSI Queue Depth                 -- 16
+        - ATS heartbeat                     -- Disabled for Datera versions 3.3.5.2 and below
+        - ATS heartbeat                     -- Enabled for Datera versions 3.3.5.3 and above
+        - iSCSI Queue Depth                 -- 16 (configurable in constants.ps1)
         - DelayedACK of SW iSCSI adapter    -- Disabled
         - DATERA NMP SATP rule              -- Round Robin and IOPS=1 for Datera storage
-        - Automatic Queue Depth control for each LUN
+        - Automatic Queue Depth control for each LUN (configurable in constants.ps1)
                                             -- QueueFullSampleSize = 32
                                             -- QueueFullThreshold = 4
-
 
     ### How to run ###
         1. Download/clone the github repository into your current directory
@@ -44,6 +43,17 @@ Features
                                                       required parameters
         3b. Run the script in corrective mode (this is disruptive and should be used with caution)
             PowerCLI C:\> .\Datera_VMWare_setup.ps1 -Update $true
+        Other examples:
+        3c. Run in succinct mode
+            PowerCLI C:\> .\Datera_VMWare_setup.ps1 -succinct $true
+        3d. Run in verbose mode
+            PowerCLI C:\> .\Datera_VMWare_setup.ps1 -verb $true
+        3e. Pass the vCenter/ESXi DNS name
+            PowerCLI C:\> .\Datera_VMWare_setup.ps1 -vCenterServer <vcenter.example.com>
+        3f. Pass the vCenter/ESXi DNS name and credentials, run in verbose mode
+            PowerCLI C:\> $mycredentials = Get-Credential
+            PowerCLI C:\> .\Datera_VMWare_setup.ps1 -vCenterServer <vcenter.example.com>
+                          -vCredential $mycredentials -verb $true
 
     ### Script parameters
         * For a complete and most up to date description of the script parameters,
@@ -59,6 +69,8 @@ Features
             Verbose. If you want lighter feedback, enable the succinct flag.
         -succinct (boolean, default $false)
             Summary output throughout the script. For more feedback, try the verbose flag.
+        -version (string, default "3.3.5.3")
+            Datera software version. This is used to determine how the ATS HB should be set.
         -sendEmail (boolean, default $false)
             Send an email for script execution. Set proper parameters in constants.ps1
         
@@ -95,3 +107,11 @@ Q: How can I create a SECURE PSCredential object to pass to the script?
 A: PS> $secpasswd = "<my_password>" | ConvertTo-SecureString -asPlainText -Force
    PS> $username = "vsphere.local\administrator" 
    PS> $mycreds = New-Object System.Management.Automation.PSCredential ($username, $secpasswd)
+
+Q: I am getting for following error:
+   Exception
+    + FullyQualifiedErrorId : CommandAlreadyAvailable,Validate-ModuleCommandAlreadyAvailable,
+    Microsoft.PowerShell.PackageManagement.Cmdlets.InstallPackage
+A: You already have a version of VMware PowerCLI module installed,
+   please add -AllowClobber to your install command, to allow PS to overwrite the commands, e.g.
+   PS> Install-Module -Name VMware.PowerCLI -RequiredVersion 6.5.4.7155375 -AllowClobber
