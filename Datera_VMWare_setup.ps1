@@ -89,7 +89,7 @@ Param(
     For Datera versions 3.3.5.2 and below, it is recommended to DISABLE ATS HB
     For Datera versions 3.3.5.3 and above, it is recommended to ENABLE ATS HB on all flash arrays
 ")]
-[string] $version = "3.3.5.3",
+[string] $version = "3.3.5.2",
 
 [parameter(Mandatory=$false,HelpMessage="
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
