@@ -69,7 +69,7 @@ Features
             Verbose. If you want lighter feedback, enable the succinct flag.
         -succinct (boolean, default $false)
             Summary output throughout the script. For more feedback, try the verbose flag.
-        -version (string, default "3.3.5.3")
+        -version (string, default "3.3.5.2")
             Datera software version. This is used to determine how the ATS HB should be set.
         -sendEmail (boolean, default $false)
             Send an email for script execution. Set proper parameters in constants.ps1
