@@ -159,6 +159,11 @@ Write-Host "      Datera® VMware® Best Practices
           "
 $verbose = $verb
 
+# Workaround for
+# https://github.com/PowerShell/PowerShell/issues/567
+
+Set-Alias -Name sort -Value Sort-Object -Scope Global
+
 if ([System.Version]$version -lt [System.Version]"3.3.5.3") {
     $required_ATS_HB = 0
 } else {
