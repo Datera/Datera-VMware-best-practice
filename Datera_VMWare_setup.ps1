@@ -373,16 +373,14 @@ foreach ($esx in $vmhosts)
                 if ($verbose -or $succinct){Write-Host "Identified this as a safe host to fix automatically, Attempting fix."}
                 $results[$index].NeedsReboot = "Yes"
                 $setChange = Get-AdvancedSetting -Entity $esx -Name VMFS3.UseATSForHBOnVMFS5 | Set-AdvancedSetting -Value $required_ATS_HB -Confirm:$false
-                if ($verbose -or $succinct){
-                    if ($setChange.Value -eq $required_ATS_HB) {
-                        Write-Host "Fix successful." -ForegroundColor Green
-                        $results[$index].ATS_HB = $setChange.Value
-                        $results[$index].Opt_Status = "Optimal"
-                    } else {
-                        Write-Host "Fix Failed." -foregroundColor Red
-                        exit
-                    }
-                    Write-Host -ForegroundColor Cyan "You will need to reboot this host."
+                if ($setChange.Value -eq $required_ATS_HB) {
+                    Write-Host "ATS HB Fix successful." -ForegroundColor Green
+                    Write-Host -ForegroundColor Cyan "You will need to reboot host $esx."
+                    $results[$index].ATS_HB = $setChange.Value
+                    $results[$index].Opt_Status = "Optimal"
+                } else {
+                    Write-Host "ATS HB Fix Failed." -foregroundColor Red
+                    exit
                 }
             }
         }
